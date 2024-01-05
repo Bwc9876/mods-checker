@@ -7,8 +7,12 @@ jobs:
   test_success:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: ./
+      - uses: actions/checkout@v4
+      - name: Check Time Saver (Even though it's perfect and we all know it)
+        id: check
+        uses: ./
         with:
             sourceType: repo
             source: Bwc9876/OW-TimeSaver
+      - name: Print Results
+        run: echo "${{ steps.check.outputs.resultJson }}"

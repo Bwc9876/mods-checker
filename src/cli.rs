@@ -21,6 +21,13 @@ pub struct CheckerCli {
         help = "The expected unique name of the mod"
     )]
     pub expected_unique_name: Option<String>,
+    #[arg(
+        global = true,
+        short = 'r',
+        long = "raw",
+        help = "Output the results as json"
+    )]
+    pub raw: bool,
 }
 
 #[derive(Subcommand)]

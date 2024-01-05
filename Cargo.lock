@@ -806,6 +806,7 @@ dependencies = [
  "octocrab",
  "owmods_core",
  "serde",
+ "serde_derive",
  "serde_json",
  "tempfile",
  "thiserror",

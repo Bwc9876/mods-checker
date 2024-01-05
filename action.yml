@@ -22,6 +22,11 @@ inputs:
     required: true
     default: ${{ github.token }}
 
+outputs:
+  resultJson:
+    description: The JSON output of the action
+    value: ${{ steps.run_action.outputs.resultJson }}
+
 runs:
   using: "composite"
   steps:
@@ -58,5 +63,6 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
 
     - name: Run Action
+      id: run_action
       shell: bash
-      run: "./${{ runner.os }}/${{ env.binary_name }} ${{ inputs.sourceType }} ${{ inputs.source }} ${{ inputs.expectedUniqueName != '' && format('--expected-unique-name={0}', inputs.expectedUniqueName) || '' }} ${{ inputs.skipDuplicateCheck && '--skip-exists' || ''}}"
+      run: echo "resultJson=$(./${{ runner.os }}/${{ env.binary_name }} -r ${{ inputs.sourceType }} ${{ inputs.source }} ${{ inputs.expectedUniqueName != '' && format('--expected-unique-name={0}', inputs.expectedUniqueName) || '' }} ${{ inputs.skipDuplicateCheck && '--skip-exists' || ''}})" >> $GITHUB_OUTPUT

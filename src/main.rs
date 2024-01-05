@@ -8,12 +8,13 @@ use owmods_core::{
     download::{install_mod_from_url, install_mod_from_zip},
     mods::local::{LocalMod, ModManifest},
 };
+use serde_derive::Serialize;
 use tempfile::TempDir;
 use thiserror::Error;
 
 mod cli;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Serialize)]
 pub enum CheckerError {
     #[error(
         "This unique name appears to be in use by another mod ({0}), please choose a different one"
@@ -41,7 +42,7 @@ pub enum CheckerError {
     MissingDependency(String),
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Serialize)]
 pub enum CheckerWarning {
     #[error("This mod's repo doesn't have a description, the description is used on the manager and website to describe your mod")]
     MissingDescription,
@@ -52,7 +53,7 @@ pub enum CheckerWarning {
 type Result<T = (), E = CheckerError> = std::result::Result<T, E>;
 
 async fn get_latest_release(repo: &RepoHandler<'_>) -> Result<Release> {
-    println!("Getting Latest Release...");
+    eprintln!("Getting Latest Release...");
     let release = repo
         .releases()
         .get_latest()
@@ -62,7 +63,7 @@ async fn get_latest_release(repo: &RepoHandler<'_>) -> Result<Release> {
 }
 
 fn compare_unique_names(local_mod: &ModManifest, expected: &str) -> Result {
-    println!("Checking Unique Names...");
+    eprintln!("Checking Unique Names...");
     let actual = local_mod.unique_name.as_str();
     if actual != expected {
         Err(CheckerError::UnexpectedUniqueName {
@@ -75,7 +76,7 @@ fn compare_unique_names(local_mod: &ModManifest, expected: &str) -> Result {
 }
 
 fn compare_tag_and_version(release: &Release, local_mod: &ModManifest) -> Result {
-    println!("Checking Versions...");
+    eprintln!("Checking Versions...");
     let expected = release.tag_name.as_str().trim_start_matches('v');
     let actual = local_mod.version.as_str().trim_start_matches('v');
     if actual != expected {
@@ -89,7 +90,7 @@ fn compare_tag_and_version(release: &Release, local_mod: &ModManifest) -> Result
 }
 
 fn check_dependencies(local_mod: &ModManifest, remote_db: &RemoteDatabase) -> Result {
-    println!("Checking Dependencies...");
+    eprintln!("Checking Dependencies...");
     if let Some(dependencies) = &local_mod.dependencies {
         for dependency in dependencies {
             if !remote_db.mods.contains_key(dependency) {
@@ -107,7 +108,7 @@ async fn check_for_description_and_readme(
     repo: &RepoHandler<'_>,
     warnings: &mut Vec<CheckerWarning>,
 ) {
-    println!("Checking For Description...");
+    eprintln!("Checking For Description...");
     let m_repo: octocrab::models::Repository = octo
         .get(format!("/repos/{owner}/{repo_name}"), None::<&()>)
         .await
@@ -120,7 +121,7 @@ async fn check_for_description_and_readme(
     {
         warnings.push(CheckerWarning::MissingDescription);
     }
-    println!("Checking For Readme...");
+    eprintln!("Checking For Readme...");
     if repo.get_readme().send().await.is_err() {
         warnings.push(CheckerWarning::MissingReadme);
     }
@@ -130,9 +131,8 @@ async fn check_mod(
     sub: CheckerSubcommand,
     expected_unique_name: Option<&str>,
     check_remote: bool,
-) -> Result<Vec<CheckerWarning>> {
-    let mut warnings = vec![];
-
+    warnings: &mut Vec<CheckerWarning>,
+) -> Result {
     let working_dir = TempDir::new().unwrap();
     let path = working_dir.path();
     let config = Config {
@@ -143,30 +143,30 @@ async fn check_mod(
         path: path.join("config.json"),
     };
 
-    println!("Initializing RemoteDatabase...");
+    eprintln!("Initializing RemoteDatabase...");
 
     let remote_db = RemoteDatabase::fetch(&config.database_url).await.unwrap();
     if check_remote {
         if let Some(unique_name) = expected_unique_name {
-            println!("Checking Unique Names...");
+            eprintln!("Checking Unique Names...");
             if let Some(remote_mod) = remote_db.get_mod(unique_name) {
                 return Err(CheckerError::UniqueNameInUse(remote_mod.name.clone()));
             }
         }
     }
 
-    println!("Initializing LocalDatabase...");
+    eprintln!("Initializing LocalDatabase...");
 
     let local_db = LocalDatabase::fetch(&config.owml_path).unwrap();
 
-    let local_mod = install_mod(sub, &config, local_db, &mut warnings).await?;
+    let local_mod = install_mod(sub, &config, local_db, warnings).await?;
 
     let manifest = local_mod.manifest;
 
     if let Some(unique_name) = expected_unique_name {
         compare_unique_names(&manifest, unique_name)?;
     } else if check_remote {
-        println!("Checking Unique Names...");
+        eprintln!("Checking Unique Names...");
         if let Some(remote_mod) = remote_db.get_mod(&manifest.unique_name) {
             return Err(CheckerError::UniqueNameInUse(remote_mod.name.clone()));
         }
@@ -174,11 +174,11 @@ async fn check_mod(
 
     check_dependencies(&manifest, &remote_db)?;
 
-    println!("Passed All Checks! Cleaning Up...");
+    eprintln!("Passed All Critical Checks! Cleaning Up...");
 
     working_dir.close().unwrap();
 
-    Ok(warnings)
+    Ok(())
 }
 
 async fn install_mod(
@@ -189,7 +189,7 @@ async fn install_mod(
 ) -> Result<LocalMod> {
     match sub {
         CheckerSubcommand::Repo { repo } => {
-            println!("Fetching Repo...");
+            eprintln!("Fetching Repo...");
 
             let octo = octocrab::instance();
             let (owner, repo_name) = repo.split_once('/').ok_or(CheckerError::MissingRelease)?;
@@ -209,7 +209,7 @@ async fn install_mod(
 
             check_for_description_and_readme(&octo, owner, repo_name, &repo, warnings).await;
 
-            println!("Installing Mod...");
+            eprintln!("Installing Mod...");
 
             let local_mod = install_mod_from_url(&download_url, None, config, &local_db)
                 .await
@@ -220,19 +220,25 @@ async fn install_mod(
             Ok(local_mod)
         }
         CheckerSubcommand::Url { url } => {
-            println!("Installing Mod...");
+            eprintln!("Installing Mod...");
             let local_mod = install_mod_from_url(&url, None, config, &local_db)
                 .await
                 .map_err(|e| CheckerError::FailedToInstall(e.to_string()))?;
             Ok(local_mod)
         }
         CheckerSubcommand::File { file } => {
-            println!("Installing Mod...");
+            eprintln!("Installing Mod...");
             let local_mod = install_mod_from_zip(&file, config, &local_db)
                 .map_err(|e| CheckerError::FailedToInstall(e.to_string()))?;
             Ok(local_mod)
         }
     }
+}
+
+#[derive(Serialize)]
+struct RawResult {
+    warnings: Vec<CheckerWarning>,
+    error: Option<CheckerError>,
 }
 
 #[tokio::main]
@@ -241,16 +247,28 @@ async fn main() -> Result<(), CheckerError> {
 
     let expected_unique_name = cli.expected_unique_name.as_deref();
 
-    let res = check_mod(cli.command, expected_unique_name, !cli.skip_exists).await;
+    let mut warnings = vec![];
 
-    match res {
-        Ok(warnings) => {
+    let res = check_mod(cli.command, expected_unique_name, !cli.skip_exists, &mut warnings).await;
+
+    if cli.raw {
+        let raw = RawResult {
+            warnings,
+            error: res.err(),
+        };
+        println!("{}", serde_json::to_string_pretty(&raw).unwrap());
+        return Ok(());
+    } else {
+        if let Err(e) = res {
+            eprintln!("Error: {}", e);
+            return Err(e);
+        }
+        if !warnings.is_empty() {
+            eprintln!("Warnings:");
             for warning in warnings {
-                eprintln!("Warning: {}", warning);
+                eprintln!("  {}", warning);
             }
         }
-        Err(e) => eprintln!("Mod is invalid: {}", e),
     }
-
     Ok(())
 }
