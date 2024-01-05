@@ -1,0 +1,62 @@
+name: Check Outer Wilds mod
+description: Checks an Outer Wilds mod for common errors and warnings
+author: Ben C <bwc9876@gmail.com>
+
+inputs:
+  sourceType:
+    description: The type of source to pull the mod from (`repo`, `url`, or `zip`)
+    required: true
+  source:
+    description: The source of the mod
+    required: true
+  expectedUniqueName:
+    description: The expected unique name of the mod
+    required: false
+    default: ''
+  skipDuplicateCheck:
+    description: Whether to skip the duplicate check
+    required: false
+    default: "false"
+  token:
+    description: 'The GitHub token to use for downloading the action, defaults to workflow token'
+    required: true
+    default: ${{ github.token }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set reusable variables
+      shell: bash
+      run: |
+        echo "action_repo=sample-rust-action" >> $GITHUB_ENV
+        echo "action_org=dbanty" >> $GITHUB_ENV
+        echo "binary_name=sample-rust-action" >> $GITHUB_ENV
+
+    - name: Add binary extension
+      shell: bash
+      if: runner.os == 'Windows'
+      run: echo "binary_name=${{ env.binary_name }}.exe" >> $GITHUB_ENV
+
+    - name: Get Action Version
+      id: get_action_version
+      shell: pwsh
+      run: |
+        $finalComponent = Split-Path -Leaf ${{ github.action_path }}
+        if ($finalComponent -eq "${{ env.action_repo }}") {
+          $version = ""
+        } else {
+          $version = $finalComponent
+        }
+        Write-Output "version=$version" >> $Env:GITHUB_OUTPUT
+
+    - name: Download Action
+      shell: bash
+      run: |
+        gh release download ${{ steps.get_action_version.outputs.version }} --repo ${{ env.action_org }}/${{ env.action_repo }} --pattern '${{ runner.os }}.tgz'
+        tar -xzf ${{ runner.os }}.tgz
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+
+    - name: Run Action
+      shell: bash
+      run: ./${{ runner.os }}/${{ env.binary_name }} ${{ inputs.sourceType }} ${{ inputs.source }} ${{ inputs.expectedUniqueName != '' && format('--expected-unique-name={0}', inputs.expectedUniqueName) || '' }} ${{ inputs.skipDuplicateCheck && '--skip-exists' || ''}}"
