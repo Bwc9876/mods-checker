@@ -1,5 +1,8 @@
 name: Test Workflow
 
+permissions:
+    checks: write
+
 on:
   - workflow_dispatch
 
@@ -14,5 +17,6 @@ jobs:
         with:
             sourceType: repo
             source: Bwc9876/OW-TimeSaver
+            token: ${{ secrets.GITHUB_TOKEN }}
       - name: Print Results
         run: echo "${{ steps.check.outputs.resultJson }}"
