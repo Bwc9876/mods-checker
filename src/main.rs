@@ -256,7 +256,7 @@ async fn main() -> Result<(), CheckerError> {
             warnings,
             error: res.err(),
         };
-        println!("{}", serde_json::to_string_pretty(&raw).unwrap());
+        println!("{}", serde_json::to_string(&raw).unwrap());
         return Ok(());
     } else {
         if let Err(e) = res {
