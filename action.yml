@@ -59,4 +59,4 @@ runs:
 
     - name: Run Action
       shell: bash
-      run: ./${{ runner.os }}/${{ env.binary_name }} ${{ inputs.sourceType }} ${{ inputs.source }} ${{ inputs.expectedUniqueName != '' && format('--expected-unique-name={0}', inputs.expectedUniqueName) || '' }} ${{ inputs.skipDuplicateCheck && '--skip-exists' || ''}}"
+      run: "./${{ runner.os }}/${{ env.binary_name }} ${{ inputs.sourceType }} ${{ inputs.source }} ${{ inputs.expectedUniqueName != '' && format('--expected-unique-name={0}', inputs.expectedUniqueName) || '' }} ${{ inputs.skipDuplicateCheck && '--skip-exists' || ''}}"
