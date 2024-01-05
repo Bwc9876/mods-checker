@@ -66,3 +66,16 @@ runs:
       id: run_action
       shell: bash
       run: echo "resultJson=$(./${{ runner.os }}/${{ env.binary_name }} -r ${{ inputs.sourceType }} ${{ inputs.source }} ${{ inputs.expectedUniqueName != '' && format('--expected-unique-name={0}', inputs.expectedUniqueName) || '' }} ${{ inputs.skipDuplicateCheck && '--skip-exists' || ''}})" >> $GITHUB_OUTPUT
+
+    - name: Output Results
+      uses: LouisBrunner/checks-action@v1.6.1
+      with:
+        token: ${{ inputs.token }}
+        name: "Mod Checker"
+        conclusion: ${{ fromJson(steps.run_action.outputs.resultJson).error && 'success' || 'failure' }}
+        output: |
+          {
+            "summary": ${{ format('Check Finished! Error: {0}, Warning(s): {1}', fromJson(steps.run_action.outputs.resultJson).error, fromJson(steps.run_action.outputs.resultJson).warnings) }}
+          }
+        images: |
+          ${{ fromJson(steps.run_action.outputs.resultJson).error && [{"alt": "Error", "image_url": "https://outerwildsmods.com/images/error.png"}] || [{"alt": "Success", "image_url": "https://pbs.twimg.com/profile_images/1607623499807342592/tozO2Xvd_400x400.jpg"}]}}
