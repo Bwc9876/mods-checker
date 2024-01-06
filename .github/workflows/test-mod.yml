@@ -1,9 +1,9 @@
 name: Test Workflow
 
 permissions:
-    contents: read
-    issues: read
-    checks: write
+  contents: read
+  issues: read
+  checks: write
 
 on:
   - workflow_dispatch
@@ -17,29 +17,37 @@ jobs:
         id: check
         uses: ./
         with:
-            sourceType: repo
-            source: Bwc9876/OW-TimeSaver
-            token: ${{ secrets.GITHUB_TOKEN }}
-            name: Time Saver Good
-            expectedUniqueName: Bwc9876.TimeSaver
-            skipDuplicateCheck: true
+          sourceType: repo
+          source: Bwc9876/OW-TimeSaver
+          token: ${{ secrets.GITHUB_TOKEN }}
+          overrideName: Time Saver Good
+          expectedUniqueName: Bwc9876.TimeSaver
+          skipDuplicateCheck: true
+  test_dupe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Check Time Saver (Is Duplicate)
         id: check_2
         uses: ./
         with:
-            sourceType: repo
-            source: Bwc9876/OW-TimeSaver
-            token: ${{ secrets.GITHUB_TOKEN }}
-            name: Time Saver Duplicate
-            expectedUniqueName: Bwc9876.TimeSaver
-            skipDuplicateCheck: false
+          sourceType: repo
+          source: Bwc9876/OW-TimeSaver
+          token: ${{ secrets.GITHUB_TOKEN }}
+          overrideName: Time Saver Duplicate
+          expectedUniqueName: Bwc9876.TimeSaver
+          skipDuplicateCheck: false
+  test_unique:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Check Time Saver (Unique Name Mismatch)
         id: check_3
         uses: ./
         with:
-            sourceType: repo
-            source: Bwc9876/OW-TimeSaver
-            token: ${{ secrets.GITHUB_TOKEN }}
-            name: Time Saver Unique Name Mismatch
-            expectedUniqueName: Bwc9876.NotTimeSaver
-            skipDuplicateCheck: true
+          sourceType: repo
+          source: Bwc9876/OW-TimeSaver
+          token: ${{ secrets.GITHUB_TOKEN }}
+          overrideName: Time Saver Unique Name Mismatch
+          expectedUniqueName: Bwc9876.NotTimeSaver
+          skipDuplicateCheck: true
