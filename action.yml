@@ -12,19 +12,19 @@ inputs:
   expectedUniqueName:
     description: The expected unique name of the mod
     required: false
-    default: ''
+    default: ""
   skipDuplicateCheck:
     description: Whether to skip the duplicate check
     required: false
     default: "false"
   token:
-    description: 'The GitHub token to use for downloading the action, defaults to workflow token'
+    description: "The GitHub token to use for downloading the action, defaults to workflow token"
     required: true
     default: ${{ github.token }}
   overrideName:
-    description: 'The name to use for the action, defaults to `Mod Checker`'
+    description: "The name to use for the action, defaults to `Mod Checker`"
     required: false
-    default: 'Mod Checker'
+    default: "Mod Checker"
 
 outputs:
   resultJson:
@@ -77,7 +77,7 @@ runs:
         summary_err: ${{ fromJson(steps.run_action.outputs.resultJson).error && 'Error Found.' || 'No Errors Found!' }}
       with:
         token: ${{ inputs.token }}
-        name: Mod Checker
+        name: ${{ inputs.overrideName }}
         conclusion: ${{ fromJson(steps.run_action.outputs.resultJson).error && 'failure' || 'success' }}
         output: |
           {"summary": "${{ format('Check Finished, {0}', env.summary_err) }}"}
