@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use clap::Parser;
 use cli::CheckerSubcommand;
 use octocrab::{models::repos::Release, repos::RepoHandler, Octocrab};
@@ -132,7 +134,7 @@ async fn check_mod(
     expected_unique_name: Option<&str>,
     check_remote: bool,
     warnings: &mut Vec<CheckerWarning>,
-) -> Result {
+) -> Result<Option<String>> {
     let working_dir = TempDir::new().unwrap();
     let path = working_dir.path();
     let config = Config {
@@ -159,7 +161,7 @@ async fn check_mod(
 
     let local_db = LocalDatabase::fetch(&config.owml_path).unwrap();
 
-    let local_mod = install_mod(sub, &config, local_db, warnings).await?;
+    let (local_mod, dl_url) = install_mod(sub, &config, local_db, warnings).await?;
 
     let manifest = local_mod.manifest;
 
@@ -178,7 +180,7 @@ async fn check_mod(
 
     working_dir.close().unwrap();
 
-    Ok(())
+    Ok(dl_url)
 }
 
 async fn install_mod(
@@ -186,7 +188,7 @@ async fn install_mod(
     config: &Config,
     local_db: LocalDatabase,
     warnings: &mut Vec<CheckerWarning>,
-) -> Result<LocalMod> {
+) -> Result<(LocalMod, Option<String>)> {
     match sub {
         CheckerSubcommand::Repo { repo } => {
             eprintln!("Fetching Repo...");
@@ -217,28 +219,66 @@ async fn install_mod(
 
             compare_tag_and_version(&release, &local_mod.manifest)?;
 
-            Ok(local_mod)
+            Ok((local_mod, Some(download_url)))
         }
         CheckerSubcommand::Url { url } => {
             eprintln!("Installing Mod...");
             let local_mod = install_mod_from_url(&url, None, config, &local_db)
                 .await
                 .map_err(|e| CheckerError::FailedToInstall(e.to_string()))?;
-            Ok(local_mod)
+            Ok((local_mod, Some(url)))
         }
         CheckerSubcommand::File { file } => {
             eprintln!("Installing Mod...");
             let local_mod = install_mod_from_zip(&file, config, &local_db)
                 .map_err(|e| CheckerError::FailedToInstall(e.to_string()))?;
-            Ok(local_mod)
+            Ok((local_mod, None))
         }
     }
 }
 
 #[derive(Serialize)]
 struct RawResult {
+    url: Option<String>,
     warnings: Vec<CheckerWarning>,
     error: Option<CheckerError>,
+}
+
+impl RawResult {
+    fn markdown(&self) -> String {
+        let mut out = String::new();
+
+        let mut issues = "## Issues\n\n".to_string();
+
+        if let Some(e) = &self.error {
+            issues.push_str(&format!("> [!CAUTION]\n> {}\n\n", e));
+        }
+
+        for warning in &self.warnings {
+            issues.push_str(&format!("> [!WARNING]\n> {}\n\n", warning));
+        }
+
+        let issues = if issues == "## Issues\n\n" {
+            String::new()
+        } else {
+            issues
+        };
+
+        out.push_str("## Results\n\n");
+
+        if self.error.is_none() {
+            out.push_str("> ✔ Success! This mod passed all checks!\n\n");
+            let link = format!("owmods://install-url/{}", self.url.as_ref().unwrap());
+            let text = format!("You can test installing your mod by pasting the link below into your URL bar, the mod manager should open and install it.\n\n```txt\n{link}\n```\n\n");
+            out.push_str(&text);
+            out.push_str("Now that all checks have passed, please wait until a database admin approves your mod.\n\n");
+        } else if self.error.is_some() {
+            out.push_str("> ❌ Failed, This mod doesn't seem to be valid, please fix the errors above and try again.\n\n");
+            out.push_str("If you need help or believe this is a mistake, please [join the Discord](https://discord.gg/wusTQYbYTc).\n\n");
+        }
+
+        format!("# Mod Checker Report\n\nThis is an automated system to check your mod for common issues, please see the results below.\n\n{}{}\n", issues, out.trim_end())
+    }
 }
 
 #[tokio::main]
@@ -249,23 +289,44 @@ async fn main() -> Result<(), CheckerError> {
 
     let mut warnings = vec![];
 
-    let res = check_mod(cli.command, expected_unique_name, !cli.skip_exists, &mut warnings).await;
+    let res = check_mod(
+        cli.command,
+        expected_unique_name,
+        !cli.skip_exists,
+        &mut warnings,
+    )
+    .await;
+
+    let raw = match res {
+        Ok(url) => RawResult {
+            url,
+            warnings,
+            error: None,
+        },
+        Err(e) => RawResult {
+            url: None,
+            warnings,
+            error: Some(e),
+        },
+    };
+
+    if cli.output_md {
+        let mut file = std::fs::File::create("results.md").unwrap();
+        file.write_all(raw.markdown().as_bytes()).unwrap();
+        return Ok(());
+    }
 
     if cli.raw {
-        let raw = RawResult {
-            warnings,
-            error: res.err(),
-        };
         println!("{}", serde_json::to_string(&raw).unwrap());
         return Ok(());
     } else {
-        if let Err(e) = res {
+        if let Some(e) = raw.error {
             eprintln!("Error: {}", e);
             return Err(e);
         }
-        if !warnings.is_empty() {
+        if !raw.warnings.is_empty() {
             eprintln!("Warnings:");
-            for warning in warnings {
+            for warning in raw.warnings {
                 eprintln!("  {}", warning);
             }
         }

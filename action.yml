@@ -21,6 +21,10 @@ inputs:
     description: 'The GitHub token to use for downloading the action, defaults to workflow token'
     required: true
     default: ${{ github.token }}
+  overrideName:
+    description: 'The name to use for the action, defaults to `Mod Checker`'
+    required: false
+    default: 'Mod Checker'
 
 outputs:
   resultJson:
@@ -65,17 +69,18 @@ runs:
     - name: Run Action
       id: run_action
       shell: bash
-      run: echo "resultJson=$(./${{ runner.os }}/${{ env.binary_name }} -r ${{ inputs.sourceType }} ${{ inputs.source }} ${{ inputs.expectedUniqueName != '' && format('--expected-unique-name={0}', inputs.expectedUniqueName) || '' }} ${{ inputs.skipDuplicateCheck && '--skip-exists' || ''}})" >> $GITHUB_OUTPUT
+      run: echo "resultJson=$(./${{ runner.os }}/${{ env.binary_name }} --output-md --raw ${{ inputs.sourceType }} ${{ inputs.source }} ${{ inputs.expectedUniqueName != '' && format('--expected-unique-name={0}', inputs.expectedUniqueName) || '' }} ${{ inputs.skipDuplicateCheck && '--skip-exists' || ''}})" >> $GITHUB_OUTPUT
 
     - name: Output Results
       uses: LouisBrunner/checks-action@v1.6.1
+      env:
+        summary_err: ${{ fromJson(steps.run_action.outputs.resultJson).error && 'Error Found.' || 'No Errors Found!' }}
       with:
         token: ${{ inputs.token }}
-        name: "Mod Checker"
-        conclusion: ${{ fromJson(steps.run_action.outputs.resultJson).error && 'success' || 'failure' }}
+        name: Mod Checker
+        conclusion: ${{ fromJson(steps.run_action.outputs.resultJson).error && 'failure' || 'success' }}
         output: |
-          {
-            "summary": "${{ format('Check Finished! Error: {0}, Warning(s): {1}', fromJson(steps.run_action.outputs.resultJson).error, fromJson(steps.run_action.outputs.resultJson).warnings) }}"
-          }
+          {"summary": "${{ format('Check Finished, {0}', env.summary_err) }}"}
+        output_text_description_file: ./result.md
         images: |
           ${{ fromJson(steps.run_action.outputs.resultJson).error && '[{"alt": "Error", "image_url": "https://outerwildsmods.com/images/error.png"}]' || '[{"alt": "Success", "image_url": "https://pbs.twimg.com/profile_images/1607623499807342592/tozO2Xvd_400x400.jpg"}]'}}

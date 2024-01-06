@@ -28,6 +28,13 @@ pub struct CheckerCli {
         help = "Output the results as json"
     )]
     pub raw: bool,
+    #[arg(
+        global = true,
+        short = 'o',
+        long = "output-md",
+        help = "Output the results as markdown"
+    )]
+    pub output_md: bool,
 }
 
 #[derive(Subcommand)]
