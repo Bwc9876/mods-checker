@@ -81,6 +81,6 @@ runs:
         conclusion: ${{ fromJson(steps.run_action.outputs.resultJson).error && 'failure' || 'success' }}
         output: |
           {"summary": "${{ format('Check Finished, {0}', env.summary_err) }}"}
-        output_text_description_file: ./result.md
+        output_text_description_file: ./results.md
         images: |
           ${{ fromJson(steps.run_action.outputs.resultJson).error && '[{"alt": "Error", "image_url": "https://outerwildsmods.com/images/error.png"}]' || '[{"alt": "Success", "image_url": "https://pbs.twimg.com/profile_images/1607623499807342592/tozO2Xvd_400x400.jpg"}]'}}
