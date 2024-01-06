@@ -317,11 +317,9 @@ async fn main() -> Result<(), CheckerError> {
 
     if cli.raw {
         println!("{}", serde_json::to_string(&raw).unwrap());
-        return Ok(());
     } else {
         if let Some(e) = raw.error {
             eprintln!("Error: {}", e);
-            return Err(e);
         }
         if !raw.warnings.is_empty() {
             eprintln!("Warnings:");
