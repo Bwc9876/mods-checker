@@ -313,7 +313,6 @@ async fn main() -> Result<(), CheckerError> {
     if cli.output_md {
         let mut file = std::fs::File::create("results.md").unwrap();
         file.write_all(raw.markdown().as_bytes()).unwrap();
-        return Ok(());
     }
 
     if cli.raw {
