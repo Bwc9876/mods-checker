@@ -82,3 +82,8 @@ runs:
         output: |
           {"summary": "${{ format('Check Finished, {0}', env.summary_err) }}"}
         output_text_description_file: ./results.md
+
+    - name: Exit with error if error found
+      if: fromJson(steps.run_action.outputs.resultJson).error
+      shell: bash
+      run: exit 1
