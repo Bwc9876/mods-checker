@@ -35,10 +35,11 @@ jobs:
         uses: thollander/actions-comment-pull-request@v2
         with:
           message: |
-            # :hourglass: Starting Mod Check 
+            ### :hourglass: Starting Mod Check 
             View the `Checks` tab for the status of this check.
       - name: Check Mod
         id: check-mod
+        continue-on-error: true
         uses: ./
         with:
           sourceType: repo
@@ -50,3 +51,6 @@ jobs:
         uses: thollander/actions-comment-pull-request@v2
         with:
           filePath: ./results.md
+      - name: Return
+        if: ${{ steps.check-mod.outcome == 'failure' }}
+        run: exit 1
