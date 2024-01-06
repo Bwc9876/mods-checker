@@ -2,6 +2,7 @@ name: Check New Mod
 
 on:
   pull_request:
+    types: [opened, labeled, synchronize]
     branches: [master, source, main]
 
 permissions:
