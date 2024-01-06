@@ -13,12 +13,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check Time Saver (Even though it's perfect and we all know it)
+      - name: Check Time Saver (Good)
         id: check
         uses: ./
         with:
             sourceType: repo
             source: Bwc9876/OW-TimeSaver
             token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Print Results
-        run: echo "${{ steps.check.outputs.resultJson }}"
+            name: Time Saver Good
+            expectedUniqueName: Bwc9876.TimeSaver
+            skipDuplicateCheck: true
+      - name: Check Time Saver (Is Duplicate)
+        id: check_2
+        uses: ./
+        with:
+            sourceType: repo
+            source: Bwc9876/OW-TimeSaver
+            token: ${{ secrets.GITHUB_TOKEN }}
+            name: Time Saver Duplicate
+            expectedUniqueName: Bwc9876.TimeSaver
+            skipDuplicateCheck: false
+      - name: Check Time Saver (Unique Name Mismatch)
+        id: check_3
+        uses: ./
+        with:
+            sourceType: repo
+            source: Bwc9876/OW-TimeSaver
+            token: ${{ secrets.GITHUB_TOKEN }}
+            name: Time Saver Unique Name Mismatch
+            expectedUniqueName: Bwc9876.NotTimeSaver
+            skipDuplicateCheck: true
