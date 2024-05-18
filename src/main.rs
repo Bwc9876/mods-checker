@@ -13,6 +13,7 @@ use owmods_core::{
 use serde_derive::Serialize;
 use tempfile::TempDir;
 use thiserror::Error;
+use versions::Versioning;
 
 mod cli;
 
@@ -22,7 +23,7 @@ pub enum CheckerError {
         "This unique name appears to be in use by another mod ({0}), please choose a different one"
     )]
     UniqueNameInUse(String),
-    #[error("This mod's repo doesn't appear to exist")]
+    #[error("This mod's repo doesn't appear to exist, please double check the URL you specified")]
     MissingRepo,
     #[error("This mod appears to be missing a release, did you forget to publish it?")]
     MissingRelease,
@@ -31,14 +32,14 @@ pub enum CheckerError {
     #[error("This mod failed to install when testing it: {0}")]
     FailedToInstall(String),
     #[error(
-        "The unique name of this mod is not what was expected, expected {expected}, got {actual}"
+        "The unique name of this mod is not what was expected, expected {expected} (from the unique name you gave), got {actual} (from the mod's manifest.json)"
     )]
     UnexpectedUniqueName { expected: String, actual: String },
-    #[error("The version of this mod's manifest does not match the tag of the release, expected {expected}, got {actual}")]
+    #[error("The version of this mod's manifest does not match the tag of the release, expected {expected} (from the release tag), got {actual} (from the mod's manifest.json). This can cause your mod to always be marked as out of date on the mod manager.")]
     UnexpectedVersion { expected: String, actual: String },
-    #[error("This mod's manifest doesn't define a DLL file")]
+    #[error("This mod's manifest doesn't define a DLL file. Double check you specified `fileName` in manifest.json")]
     MissingDLL,
-    #[error("This mod's manifest defines a DLL file that doesn't exist: {0}")]
+    #[error("This mod's manifest defines a DLL file that doesn't exist: {0}. Double check the name your specified in manifest.json")]
     InvalidDLL(String),
     #[error("This mod depends on another mod that seemingly doesn't exist: {0}")]
     MissingDependency(String),
@@ -46,10 +47,12 @@ pub enum CheckerError {
 
 #[derive(Error, Debug, Serialize)]
 pub enum CheckerWarning {
-    #[error("This mod's repo doesn't have a description, the description is used on the manager and website to describe your mod")]
+    #[error("This mod's repo doesn't have a description, the description is used on the manager and website to describe your mod. You can add one by clicking the pencil icon on the right sidebar on your repo's main page")]
     MissingDescription,
-    #[error("This mod's repo doesn't have a README, the README is used on the website to describe your mod")]
+    #[error("This mod's repo doesn't have a README, the README is used on the website to describe your mod. You can add one by creating a file called `README.md` at the root of your repo")]
     MissingReadme,
+    #[error("The git tag ({0}) of this mod's release is not parsable semver, this can cause your mod to always be marked as out of date on the mod manager")]
+    InvalidSemverTag(String),
 }
 
 type Result<T = (), E = CheckerError> = std::result::Result<T, E>;
@@ -202,6 +205,13 @@ async fn install_mod(
             }
 
             let release = get_latest_release(&repo).await?;
+
+            let release_ver = Versioning::new(release.tag_name.as_str().trim_start_matches('v'));
+
+            if release_ver.map_or(true, |v| !v.is_ideal()) {
+                warnings.push(CheckerWarning::InvalidSemverTag(release.tag_name.clone()));
+            }
+
             let asset = release
                 .assets
                 .iter()
@@ -248,7 +258,7 @@ impl RawResult {
     fn markdown(&self) -> String {
         let mut out = String::new();
 
-        let mut issues = "## Issues\n\n".to_string();
+        let mut issues = "### Issues\n\n".to_string();
 
         if let Some(e) = &self.error {
             issues.push_str(&format!("> [!CAUTION]\n> {}\n\n", e));
@@ -258,13 +268,13 @@ impl RawResult {
             issues.push_str(&format!("> [!WARNING]\n> {}\n\n", warning));
         }
 
-        let issues = if issues == "## Issues\n\n" {
+        let issues = if issues == "### Issues\n\n" {
             String::new()
         } else {
             issues
         };
 
-        out.push_str("## Results\n\n");
+        out.push_str("### Results\n\n");
 
         if self.error.is_none() {
             out.push_str("> ✔ Success! This mod passed all checks!\n\n");
@@ -277,7 +287,7 @@ impl RawResult {
             out.push_str("If you need help or believe this is a mistake, please [join the Discord](https://discord.gg/wusTQYbYTc).\n\n");
         }
 
-        format!("# Mod Checker Report\n\nThis is an automated system to check your mod for common issues, please see the results below.\n\n{}{}\n", issues, out.trim_end())
+        format!("## Mod Checker Report\n\nThis is an automated system to check your mod for common issues, please see the results below.\n\n{}{}\n", issues, out.trim_end())
     }
 }
 
