@@ -829,7 +829,7 @@ dependencies = [
 
 [[package]]
 name = "mods-checker"
-version = "0.1.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
